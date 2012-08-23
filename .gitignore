@@ -42,3 +42,5 @@ bin-debug/assets/edit.png
 bin-debug/assets/refresh.png
 
 src/locale/en_US/resources.properties
+
+bin-debug/locale/en_US/resources.properties.example
