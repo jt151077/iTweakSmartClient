@@ -60,7 +60,7 @@
 				selectedLand = evt.target.name;
 				selectedLandName = evt.target.label;
 				
-				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/updateCountry/"+selectedLand);
+				var upurlRequest:URLRequest = new URLRequest(resourceManager.getString('resources', 'SERVICE_HOST')+"/updateCountry/"+selectedLand);
 				upurlRequest.method = URLRequestMethod.PUT;
 				upurlRequest.contentType = "application/json";
 				

@@ -40,3 +40,5 @@ iTweakSmartClient.ipa
 bin-debug/assets/edit.png
 
 bin-debug/assets/refresh.png
+
+src/locale/en_US/resources.properties

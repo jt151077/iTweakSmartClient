@@ -41,10 +41,24 @@
 				}
 				
 				NativeApplication.nativeApplication.addEventListener(Event.EXITING, onDeactivate);
-				getMessagesPerCountry.url = iTweakSmartClient.SERVICE_HOST+"/tweakTweetByCountry?country="+currentLandName;
+				getMessagesPerCountry.url = resourceManager.getString('resources', 'SERVICE_HOST')+"/tweakTweetByCountry?country="+currentLandName;
 				getMessagesPerCountry.send();
 				
 				getXMPPConnection();
+			}
+			
+			protected function getUpdateUrlRequest(lid:String):URLRequest {
+				//var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/updateCountry/"+lid);
+				var upurlRequest:URLRequest = new URLRequest(resourceManager.getString('resources', 'SERVICE_HOST')+"/updateCountry/"+lid);
+				upurlRequest.method = URLRequestMethod.PUT;
+				upurlRequest.contentType = "application/json";
+				
+				var statusObject:Object = new Object();
+				statusObject.stat = "reset";
+				
+				upurlRequest.data = com.adobe.serialization.json.JSON.encode(statusObject);
+				
+				return upurlRequest;
 			}
 			
 			protected function onDeactivate(evt:Event):void {
@@ -54,7 +68,7 @@
 					disconnectFromBoard();
 					var uploader:URLLoader = new URLLoader();
 					uploader.addEventListener(Event.COMPLETE, onDeactivateHandler);
-					uploader.load(iTweakSmartClient.getUpdateUrlRequest(currentLandID));
+					uploader.load(getUpdateUrlRequest(currentLandID));
 				}
 			}
 			
@@ -176,7 +190,7 @@
 			}
 			
 			protected function updatePosition(xpos:Number, ypos:Number, tweet:TweetRenderer):void {
-				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/tweakTweet/"+tweet.tweetId);
+				var upurlRequest:URLRequest = new URLRequest(resourceManager.getString('resources', 'SERVICE_HOST')+"/tweakTweet/"+tweet.tweetId);
 				upurlRequest.method = URLRequestMethod.PUT;
 				upurlRequest.contentType = "application/json";
 				
@@ -191,7 +205,7 @@
 			}
 			
 			protected function updateVisibility(visi:Boolean, tweet:TweetRenderer):void {
-				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/updateTweakTweetVisibilty/"+tweet.tweetId);
+				var upurlRequest:URLRequest = new URLRequest(resourceManager.getString('resources', 'SERVICE_HOST')+"/updateTweakTweetVisibilty/"+tweet.tweetId);
 				upurlRequest.method = URLRequestMethod.PUT;
 				upurlRequest.contentType = "application/json";
 				
@@ -250,7 +264,7 @@
 			protected function quitView(event:MouseEvent):void {
 				var uploader:URLLoader = new URLLoader();
 				uploader.addEventListener(Event.COMPLETE, onQuitViewHandler);
-				uploader.load(iTweakSmartClient.getUpdateUrlRequest(currentLandID));
+				uploader.load(getUpdateUrlRequest(currentLandID));
 			}
 			
 			protected function onQuitViewHandler(evt:Event):void {
@@ -279,30 +293,30 @@
 				
 				switch(currentLandName) {
 					case "frankrike":
-						conn.setJID("clientfrance@"+iTweakSmartClient.SERVER_HOST+"/clientfrance");
+						conn.setJID("clientfrance@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientfrance");
 						break;
 					case "tyskland":
-						conn.setJID("clientgermany@"+iTweakSmartClient.SERVER_HOST+"/clientgermany");
+						conn.setJID("clientgermany@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientgermany");
 						break;
 					case "russland":
-						conn.setJID("clientrussia@"+iTweakSmartClient.SERVER_HOST+"/clientrussia");
+						conn.setJID("clientrussia@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientrussia");
 						break;
 					case "italia":
-						conn.setJID("clientitaly@"+iTweakSmartClient.SERVER_HOST+"/clientitaly");
+						conn.setJID("clientitaly@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientitaly");
 						break;
 					case "tyrkia":
-						conn.setJID("clientturkey@"+iTweakSmartClient.SERVER_HOST+"/clientturkey");
+						conn.setJID("clientturkey@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientturkey");
 						break;
 					case "england":
-						conn.setJID("clientengland@"+iTweakSmartClient.SERVER_HOST+"/clientengland");
+						conn.setJID("clientengland@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientengland");
 						break;
 					case "ungarrike":
-						conn.setJID("clientungarrike@"+iTweakSmartClient.SERVER_HOST+"/clientungarrike");
+						conn.setJID("clientungarrike@"+resourceManager.getString('resources', 'SERVICE_HOST')+"/clientungarrike");
 						break;
 				}
 				
 				conn.setPassword("hash");
-				conn.setServer(iTweakSmartClient.SERVER_HOST);
+				conn.setServer(resourceManager.getString('resources', 'SERVER_HOST'));
 				//conn.addEventListener(XMPPEvent.MESSAGE, handleMessage);
 				conn.addEventListener(XMPPEvent.SESSION, handleSession);
 				conn.addPlugin(new MUC());
@@ -322,7 +336,7 @@
 				clearInterval(timeoutInterval);
 				var uploader:URLLoader = new URLLoader();
 				uploader.addEventListener(Event.COMPLETE, onResetHandler);
-				uploader.load(iTweakSmartClient.getUpdateUrlRequest(data.cid));
+				uploader.load(getUpdateUrlRequest(data.cid));
 			}
 			
 			protected function onResetHandler(evt:Event):void {
@@ -377,7 +391,7 @@
 				clearInterval(refreshTweetsInterval);
 				bi.visible = false;
 				messageBoard.removeAllElements();
-				getMessagesPerCountry.url = iTweakSmartClient.SERVICE_HOST+"/tweakTweetByCountry?country="+currentLandName;
+				getMessagesPerCountry.url = resourceManager.getString('resources', 'SERVICE_HOST')+"/tweakTweetByCountry?country="+currentLandName;
 				getMessagesPerCountry.send();
 				
 				if(shareButton.selected) {
