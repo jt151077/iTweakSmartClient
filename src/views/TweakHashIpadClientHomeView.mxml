@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" title="Choose a country" creationComplete="getCountries.send()" destructionPolicy="auto">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.serialization.json.JSON;
+			import com.seesmic.as3.xmpp.JID;
+			import com.seesmic.as3.xmpp.XMPP;
+			import com.seesmic.as3.xmpp.XMPPEvent;
+			import com.seesmic.as3.xmpp.xep.muc.MUC;
+			
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			import mx.utils.UIDUtil;
+			
+			import spark.components.Button;
+			[bindable] private var selectedLand:String;
+			[bindable] private var selectedLandName:String;
+			
+			private var conn:XMPP;
+			[bindable] private var dat:Object;
+			[bindable] private var token:String;
+			
+			protected function getCountries_resultHandler(event:ResultEvent):void {
+				var res:Object = com.adobe.serialization.json.JSON.decode(String(event.result));
+				
+				//var b:Button;
+				for each (var land:Object in res) {
+					/*b = new Button();
+					b.name = land._id;
+					b.label = land.country;
+					b.width = 200;
+					b.height = 50;
+					b.addEventListener(MouseEvent.CLICK, pickCountry);
+					countries.addElement(b); */
+					
+					if(land.inuse == "true") {
+						var b:Button;
+						for (var i:int = 0; i < countries.numElements; i++) {
+							b = countries.getElementAt(i) as Button;
+							if(b.name == land._id) {
+								b.enabled = false;
+							}
+						}
+					}
+				}
+			}
+			
+			protected function getCountries_faultHandler(event:FaultEvent):void {
+				alert.visible = true;
+			}
+			
+			protected function pickCountry(evt:MouseEvent):void {
+				bi.visible = true;
+				selectedLand = evt.target.name;
+				selectedLandName = evt.target.label;
+				
+				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/updateCountry/"+selectedLand);
+				upurlRequest.method = URLRequestMethod.PUT;
+				upurlRequest.contentType = "application/json";
+				
+				var statusObject:Object = new Object();
+				statusObject.stat = "pick";
+				token = UIDUtil.createUID();
+				statusObject.token = token;
+				
+				upurlRequest.data = com.adobe.serialization.json.JSON.encode(statusObject);
+				var uploader:URLLoader = new URLLoader();
+				uploader.addEventListener(Event.COMPLETE, upcompleteHandler);
+				uploader.load(upurlRequest);
+			}
+			
+			private function upcompleteHandler(ev:Event):void {
+				var res:Object = com.adobe.serialization.json.JSON.decode(String(ev.target.data));
+				bi.visible = false;
+				
+				if(res.inuse == "true" && this.token == res.token) {
+					dat = new Object();
+					if(selectedLandName == "østerrike-ungarn") {
+						dat.name = "ungarrike";
+					}
+					else {
+						dat.name = selectedLandName;
+					}
+					
+					dat.cid = selectedLand;
+					navigator.pushView(Board, dat, null, null);
+				}
+				else {
+					refreshCountries();
+				}
+			}
+			
+			private function refreshCountries():void {
+				//countries.removeAllElements();
+				for (var i:int = 0; i < countries.numElements; i++) {
+					(countries.getElementAt(i) as Button).enabled = true;
+				}
+				
+				getCountries.send();
+			}
+			
+			private function securityErrorHandler(ev:SecurityErrorEvent):void {
+				trace("Security bubu");
+			}
+			
+			private function httpStatusHandler(ev:HTTPStatusEvent):void {
+				trace(ev.status);
+			}
+			
+			private function ioErrorHandler(ev:IOErrorEvent):void {
+				trace(ev.text);
+			}
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:HTTPService id="getCountries" url="http://imediamac19.uio.no:4568/getCountries" result="getCountries_resultHandler(event)" fault="getCountries_faultHandler(event)" resultFormat="text" method="GET" />
+	</fx:Declarations>
+	
+	<s:actionContent>
+		<s:Button icon="@Embed('assets/refresh.png')" click="refreshCountries()" />
+	</s:actionContent>
+	
+	<s:TileGroup width="640" id="countries" horizontalCenter="0" verticalCenter="0" horizontalGap="20" verticalGap="20">
+		<s:Button name="4ff43c4e9fce114cd8000004" width="200" height="50" label="frankrike" click="pickCountry(event)" />
+		<s:Button name="4ff43c549fce114cd8000005" width="200" height="50" label="tyskland" click="pickCountry(event)" />
+		<s:Button name="4ff43c5e9fce114cd8000007" width="200" height="50" label="russland" click="pickCountry(event)" />
+		<s:Button name="4ff43c599fce114cd8000006" width="200" height="50" label="italia" click="pickCountry(event)" />
+		<s:Button name="4ff43c669fce114cd8000008" width="200" height="50" label="tyrkia" click="pickCountry(event)" />
+		<s:Button name="4ff43c499fce114cd8000003" width="200" height="50" label="england" click="pickCountry(event)" />
+		<s:Button name="501a7e2d9fce113701000004" width="200" height="50" label="østerrike-ungarn" click="pickCountry(event)" />
+	</s:TileGroup>
+	
+	<s:BorderContainer id="alert" visible="false" width="400" height="300" borderColor="#333333" cornerRadius="10" backgroundColor="#666666" backgroundAlpha=".5" horizontalCenter="0" verticalCenter="0">
+		<s:Label top="10" bottom="10" right="10" left="10" verticalAlign="middle" textAlign="center" color="#FFFFFF" text="Oops, an error occured while retrieving the countries!" fontSize="20" />
+	</s:BorderContainer>
+	
+	<s:BorderContainer visible="false" width="100%" height="100%" backgroundColor="#333333" backgroundAlpha=".7" id="bi">
+		<s:BusyIndicator width="50" height="50" horizontalCenter="0" verticalCenter="0" symbolColor="#FFFFFF" />
+	</s:BorderContainer>
+	
+	<s:Label color="#333333" text="Copyright Jeremy Toussaint @ InterMedia" fontSize="10" bottom="2" right="2" />
+ </s:View>

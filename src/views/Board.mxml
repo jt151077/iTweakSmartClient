@@ -1,0 +1,452 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:View xmlns:fx="http://ns.adobe.com/mxml/2009" 
+		xmlns:s="library://ns.adobe.com/flex/spark" creationComplete="initView(event)">
+	
+	<fx:Script>
+		<![CDATA[
+			import com.adobe.serialization.json.JSON;
+			import com.seesmic.as3.xmpp.JID;
+			import com.seesmic.as3.xmpp.XMPP;
+			import com.seesmic.as3.xmpp.XMPPEvent;
+			import com.seesmic.as3.xmpp.xep.muc.MUC;
+			
+			import flash.utils.clearInterval;
+			import flash.utils.setInterval;
+			
+			import mx.events.FlexEvent;
+			import mx.rpc.events.FaultEvent;
+			import mx.rpc.events.ResultEvent;
+			
+			private var currentLandID:String;
+			private var currentLandName:String;
+			
+			private var hasSaved:Boolean = false;
+			private var conn:XMPP;
+			private var timeoutInterval:Number;
+			private var refreshTweetsInterval:Number;
+			
+			[bindable] private var hasSessionWithBoard:Boolean = false;
+			
+			protected function initView(event:FlexEvent):void {
+				Multitouch.inputMode = MultitouchInputMode.TOUCH_POINT;
+				
+				currentLandID = data.cid;
+				currentLandName = data.name;
+				
+				if(currentLandName == "ungarrike") {
+					this.title = "#østerrike-ungarn";
+				}
+				else {
+					this.title = "#"+currentLandName;
+				}
+				
+				NativeApplication.nativeApplication.addEventListener(Event.EXITING, onDeactivate);
+				getMessagesPerCountry.url = iTweakSmartClient.SERVICE_HOST+"/tweakTweetByCountry?country="+currentLandName;
+				getMessagesPerCountry.send();
+				
+				getXMPPConnection();
+			}
+			
+			protected function onDeactivate(evt:Event):void {
+				if(!hasSaved) {
+					evt.stopImmediatePropagation();
+					evt.preventDefault();
+					disconnectFromBoard();
+					var uploader:URLLoader = new URLLoader();
+					uploader.addEventListener(Event.COMPLETE, onDeactivateHandler);
+					uploader.load(iTweakSmartClient.getUpdateUrlRequest(currentLandID));
+				}
+			}
+			
+			protected function getMessagesPerCountry_resultHandler(event:ResultEvent):void {
+				var res:Object = com.adobe.serialization.json.JSON.decode(String(event.result));
+				
+				var country:TweetRenderer;
+				for each (var land:Object in res) {
+					country = new TweetRenderer();
+					messageBoard.addElement(country);
+					country.content.text = land.content;
+					country.creator.text = land.creator + ":";
+					country.tweetId = land._id;
+					country.buttonMode = true;
+					country.mouseChildren = false;
+					country.x = (land.xpos*stage.stageWidth) / 100;
+					country.y = (land.ypos*(stage.stageHeight-45)) / 100;
+					
+					if(land.display) {
+						country.currentState = "normal";
+					}
+					else {
+						country.currentState = "hidden";
+					}
+					
+					if(Multitouch.supportsTouchEvents) {
+						country.addEventListener(TouchEvent.TOUCH_BEGIN, onTouchBegin);
+						country.addEventListener(TouchEvent.TOUCH_END, onTouchEnd);
+						country.addEventListener(TouchEvent.TOUCH_MOVE, onTouchMove);
+						country.addEventListener(GestureEvent.GESTURE_TWO_FINGER_TAP, onDoubleTap);
+					}
+					else {
+						country.addEventListener(MouseEvent.MOUSE_DOWN, onMouchBegin);
+						country.addEventListener(MouseEvent.MOUSE_UP, onMouchEnd);
+					}
+					
+				}
+			}
+			
+			protected function onDoubleTap(evt:GestureEvent):void {
+				
+				messageBoard.setElementIndex(evt.target as TweetRenderer, messageBoard.numElements-1);
+			}
+			
+			protected function onTouchBegin(evt:TouchEvent):void {
+				evt.target.startTouchDrag(evt.touchPointID);
+				messageBoard.setElementIndex(evt.target as TweetRenderer, messageBoard.numElements-1);
+			}
+			
+			protected function onTouchEnd(evt:TouchEvent):void {
+				if(!evt.isPrimaryTouchPoint) {
+					if((evt.target as TweetRenderer).currentState == "normal") {
+						updateVisibility(false, (evt.target as TweetRenderer));
+					}
+					else {
+						updateVisibility(true, (evt.target as TweetRenderer));
+					}
+					bi.visible = true;
+				}
+				
+				evt.target.stopTouchDrag(evt.touchPointID); 
+				evt.target.alpha = 1;
+				correctPosition(evt.target as TweetRenderer);
+			}
+			
+			protected function onTouchMove(evt:TouchEvent):void {
+				evt.target.alpha = 0.5;
+			}
+			
+			protected function onMouchBegin(evt:MouseEvent):void {
+				messageBoard.setElementIndex(evt.target as TweetRenderer, messageBoard.numElements-1);
+				evt.target.startDrag();
+			}
+			
+			protected function onMouchEnd(evt:MouseEvent):void {
+				evt.target.stopDrag(); 
+				evt.target.alpha = 1;
+				correctPosition(evt.target as TweetRenderer);
+			}
+			
+			private function onDeactivateHandler(ev:Event):void {
+				hasSaved = true;
+				
+				NativeApplication.nativeApplication.exit(0);	
+			}
+			
+			protected function disconnectFromBoard():void {
+				var jsonMessage:Object = new Object();
+				jsonMessage.actionRequest = "reset";
+				conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+			}
+			
+			protected function getMessagesPerCountry_faultHandler(event:FaultEvent):void {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			protected function correctPosition(tweet:TweetRenderer):void {
+				if(tweet.x < 0) {
+					tweet.x = 0;
+				}
+				
+				if(tweet.x+tweet.width > stage.stageWidth ) {
+					tweet.x = stage.stageWidth - tweet.width;
+				}
+				
+				if(tweet.y < 0) {
+					tweet.y = 0;
+				}
+				
+				if(tweet.y+tweet.height > stage.stageHeight-45 ) {
+					tweet.y = stage.stageHeight - 45 - tweet.height;
+				}
+				
+				var percentX:Number = Math.floor((tweet.x * 100) / stage.stageWidth);
+				var percentY:Number = Math.floor((tweet.y * 100) / (stage.stageHeight-45));
+				
+				updatePosition(percentX, percentY, tweet);
+			}
+			
+			protected function updatePosition(xpos:Number, ypos:Number, tweet:TweetRenderer):void {
+				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/tweakTweet/"+tweet.tweetId);
+				upurlRequest.method = URLRequestMethod.PUT;
+				upurlRequest.contentType = "application/json";
+				
+				var updatedObject:Object = new Object();
+				updatedObject.xpos = xpos;
+				updatedObject.ypos = ypos;
+				
+				upurlRequest.data = com.adobe.serialization.json.JSON.encode(updatedObject);
+				var uploader:URLLoader = new URLLoader();
+				uploader.addEventListener(Event.COMPLETE, updatePositionHandler);
+				uploader.load(upurlRequest);
+			}
+			
+			protected function updateVisibility(visi:Boolean, tweet:TweetRenderer):void {
+				var upurlRequest:URLRequest = new URLRequest(iTweakSmartClient.SERVICE_HOST+"/updateTweakTweetVisibilty/"+tweet.tweetId);
+				upurlRequest.method = URLRequestMethod.PUT;
+				upurlRequest.contentType = "application/json";
+				
+				var updatedObject:Object = new Object();
+				updatedObject.display = visi;
+				
+				upurlRequest.data = com.adobe.serialization.json.JSON.encode(updatedObject);
+				var uploader:URLLoader = new URLLoader();
+				uploader.addEventListener(Event.COMPLETE, updateVisibilityHandler);
+				uploader.load(upurlRequest);
+			}
+			
+			protected function updatePositionHandler(ev:Event):void {
+				var res:Object = com.adobe.serialization.json.JSON.decode(String(ev.target.data));
+				
+				if(hasSessionWithBoard) {
+					var jsonMessage:Object = new Object();
+					jsonMessage.actionRequest = "updatePosition";
+					jsonMessage.tweetId = res._id;
+					jsonMessage.xpos = res.xpos;
+					jsonMessage.ypos = res.ypos;
+					
+					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+				}
+			}
+			
+			protected function updateVisibilityHandler(ev:Event):void {
+				var res:Object = com.adobe.serialization.json.JSON.decode(String(ev.target.data));
+				
+				var tr:TweetRenderer;
+				for (var i:int = 0; i < messageBoard.numElements; i++)  {
+					tr = messageBoard.getElementAt(i) as TweetRenderer;
+					
+					if(tr.tweetId == res._id) {
+						if(res.display) {
+							tr.currentState = "normal";
+						}
+						else {
+							tr.currentState = "hidden";
+						}
+					}
+				}
+				
+				if(hasSessionWithBoard) {
+					var jsonMessage:Object = new Object();
+					jsonMessage.actionRequest = "updateDisplay";
+					jsonMessage.tweetId = res._id;
+					jsonMessage.display = res.display;
+					
+					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+				}
+				
+				bi.visible = false;
+			}
+			
+			protected function quitView(event:MouseEvent):void {
+				var uploader:URLLoader = new URLLoader();
+				uploader.addEventListener(Event.COMPLETE, onQuitViewHandler);
+				uploader.load(iTweakSmartClient.getUpdateUrlRequest(currentLandID));
+			}
+			
+			protected function onQuitViewHandler(evt:Event):void {
+				disconnectFromBoard();
+				navigator.pushView(TweakHashIpadClientHomeView);				
+			}
+			
+			protected function shareView(event:Event):void {
+				if(event.target.selected) {
+					bi.visible = true;
+					var jsonMessage:Object = new Object();
+					jsonMessage.actionRequest = "stage";
+					
+					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+					timeoutInterval = setInterval(resetApp, 10000);
+				}
+				else {
+					disconnectFromBoard();
+				}
+			}
+			
+			protected function getXMPPConnection():void {
+				// TODO Auto-generated method stub
+				conn = new XMPP();
+				conn.auto_reconnect = false;
+				
+				switch(currentLandName) {
+					case "frankrike":
+						conn.setJID("clientfrance@"+iTweakSmartClient.SERVER_HOST+"/clientfrance");
+						break;
+					case "tyskland":
+						conn.setJID("clientgermany@"+iTweakSmartClient.SERVER_HOST+"/clientgermany");
+						break;
+					case "russland":
+						conn.setJID("clientrussia@"+iTweakSmartClient.SERVER_HOST+"/clientrussia");
+						break;
+					case "italia":
+						conn.setJID("clientitaly@"+iTweakSmartClient.SERVER_HOST+"/clientitaly");
+						break;
+					case "tyrkia":
+						conn.setJID("clientturkey@"+iTweakSmartClient.SERVER_HOST+"/clientturkey");
+						break;
+					case "england":
+						conn.setJID("clientengland@"+iTweakSmartClient.SERVER_HOST+"/clientengland");
+						break;
+					case "ungarrike":
+						conn.setJID("clientungarrike@"+iTweakSmartClient.SERVER_HOST+"/clientungarrike");
+						break;
+				}
+				
+				conn.setPassword("hash");
+				conn.setServer(iTweakSmartClient.SERVER_HOST);
+				//conn.addEventListener(XMPPEvent.MESSAGE, handleMessage);
+				conn.addEventListener(XMPPEvent.SESSION, handleSession);
+				conn.addPlugin(new MUC());
+				
+				conn.connect();
+			}
+			
+			private final function handleSession(e:XMPPEvent):void {
+				conn.sendPresence();
+				conn.addEventListener(XMPPEvent.MESSAGE_MUC, handleMUCMessage);
+				conn.plugin['muc'].joinRoom('conference.imediamac19.uio.no', 'tweakhashfelles', "client"+currentLandName);
+				conn.plugin['muc'].joinRoom('conference.imediamac19.uio.no', 'tweakfelles', "client"+currentLandName);
+				shareButton.enabled = true;
+			}
+			
+			protected function resetApp():void {
+				clearInterval(timeoutInterval);
+				var uploader:URLLoader = new URLLoader();
+				uploader.addEventListener(Event.COMPLETE, onResetHandler);
+				uploader.load(iTweakSmartClient.getUpdateUrlRequest(data.cid));
+			}
+			
+			protected function onResetHandler(evt:Event):void {
+				bi.visible = false;
+				messageBoard.removeAllElements();		
+				shareButton.enabled = true;
+			}
+			
+			protected function handleMUCMessage(evt:XMPPEvent):void {
+				if(!evt.stanza.body) {
+					return;
+				}
+				
+				var roomjid:JID = JID(evt.stanza.from);
+				
+				if(roomjid.getResource() != "" && roomjid.getResource() == "hashsbagent") {
+					
+					var oldMessage:Boolean = false;
+					var xm:XML = evt.stanza.xml as XML;
+					for each (var i:XML in xm.elements()) {
+						if(i.name() == "urn:xmpp:delay::delay") {
+							oldMessage = true;
+						}
+					}
+					
+					if(!oldMessage && evt.stanza.body == data.name) {
+						clearInterval(timeoutInterval);
+						hasSessionWithBoard = true;
+						bi.visible = false;
+					}
+					else if(!oldMessage && evt.stanza.body != data.name) {
+						hasSessionWithBoard = false;
+						bi.visible = false;
+						shareButton.selected = false;
+					}
+				}
+				
+			}
+			
+			protected function sendTweet():void {
+				if(tweetArea.text.length > 0) {
+					conn.plugin['muc'].sendMessage('conference.imediamac19.uio.no', 'tweakfelles', tweetArea.text, null);
+				}
+				tweetArea.text = '';
+				tweetZone.visible = false;
+				bi.visible = true;
+				
+				refreshTweetsInterval = setInterval(refreshTweets, 5000);
+			}
+			
+			protected function refreshTweets():void {
+				clearInterval(refreshTweetsInterval);
+				bi.visible = false;
+				messageBoard.removeAllElements();
+				getMessagesPerCountry.url = iTweakSmartClient.SERVICE_HOST+"/tweakTweetByCountry?country="+currentLandName;
+				getMessagesPerCountry.send();
+				
+				if(shareButton.selected) {
+					var jsonMessage:Object = new Object();
+					jsonMessage.actionRequest = "stage";
+					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+				}
+			}
+			
+			protected function showEditView(event:MouseEvent):void {
+				addEventListener(KeyboardEvent.KEY_DOWN, handleKeyDown);
+				tweetZone.visible = true;
+			}
+			
+			protected function handleKeyDown(evt:KeyboardEvent):void {
+				tweetArea.text = tweetArea.text + evt.charCode;
+				if(evt.charCode == 13) {
+					//sendTweet();
+					stage.focus = null;
+				}
+			}
+			
+			protected function cancelAddTweet(event:MouseEvent):void {
+				tweetArea.text='';
+				tweetZone.visible = false;
+			}
+			
+		]]>
+	</fx:Script>
+	
+	<fx:Declarations>
+		<s:HTTPService id="getMessagesPerCountry" result="getMessagesPerCountry_resultHandler(event)" fault="getMessagesPerCountry_faultHandler(event)" resultFormat="text" method="GET" />
+	</fx:Declarations>
+	
+	<s:navigationContent>
+		<s:Button icon="@Embed('assets/edit.png')" click="showEditView(event)" />
+		<s:Button icon="@Embed('assets/refresh.png')" click="refreshTweets()" />		
+	</s:navigationContent>
+	
+	<s:actionContent>
+		<s:Label text="Sharing:" color="#FFFFFF" left="10" />
+		<s:Spacer width="15" />
+		<s:ToggleSwitch id="shareButton" label="Share" change="shareView(event)" />
+		<s:Spacer width="15" />
+		<s:Button id="disconnectButton" label="Quit" click="quitView(event)"/>
+	</s:actionContent>
+	
+	<s:Group width="100%" height="100%" id="messageBoard" />
+	
+	<s:Group width="100%" height="100%" id="tweetZone" visible="false">
+		<s:Rect width="100%" height="100%">
+			<s:fill><s:SolidColor color="0x333333" alpha=".7" /></s:fill>
+		</s:Rect>
+		<s:BorderContainer width="{this.stage.stageWidth/3}" height="{this.stage.stageHeight/3}" horizontalCenter="0" verticalCenter="0" cornerRadius="7">
+			<s:VGroup horizontalAlign="center" top="10" right="10" bottom="10" left="10">
+				<s:TextArea width="100%" height="100%" id="tweetArea" autoCorrect="true" maxChars="140" returnKeyLabel="done" />
+				<s:HGroup>
+					<s:Button label="Send" click="sendTweet()" />
+					<s:Button label="Cancel" click="cancelAddTweet(event)" />
+				</s:HGroup>
+			</s:VGroup>
+		</s:BorderContainer>
+	</s:Group>
+	
+	<s:BorderContainer width="100%" backgroundAlpha=".3" backgroundColor="#000000" cornerRadius="0" borderVisible="false" bottom="0" >
+		<s:Label text="Use double tap on a tweet to show/hide its content" color="#FFFFFF" left="10" right="10" top="3" bottom="3" fontSize="10" verticalAlign="middle" />
+	</s:BorderContainer>
+	
+	<s:BorderContainer visible="false" width="100%" height="100%" backgroundColor="#333333" backgroundAlpha=".7" id="bi">
+		<s:BusyIndicator width="50" height="50" horizontalCenter="0" verticalCenter="0" symbolColor="#FFFFFF" />
+	</s:BorderContainer>
+</s:View>
