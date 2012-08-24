@@ -120,7 +120,7 @@
 	</fx:Script>
 	
 	<fx:Declarations>
-		<s:HTTPService id="getCountries" url="http://imediamac19.uio.no:4568/getCountries" result="getCountries_resultHandler(event)" fault="getCountries_faultHandler(event)" resultFormat="text" method="GET" />
+		<s:HTTPService id="getCountries" url="{resourceManager.getString('resources', 'SERVICE_HOST')+'/getCountries'}" result="getCountries_resultHandler(event)" fault="getCountries_faultHandler(event)" resultFormat="text" method="GET" />
 	</fx:Declarations>
 	
 	<s:actionContent>

@@ -158,7 +158,7 @@
 			protected function disconnectFromBoard():void {
 				var jsonMessage:Object = new Object();
 				jsonMessage.actionRequest = "reset";
-				conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+				conn.sendMessage("hashsbagent@"+resourceManager.getString('resources', 'SERVICE_HOST'), com.adobe.serialization.json.JSON.encode(jsonMessage));
 			}
 			
 			protected function getMessagesPerCountry_faultHandler(event:FaultEvent):void {
@@ -228,7 +228,7 @@
 					jsonMessage.xpos = res.xpos;
 					jsonMessage.ypos = res.ypos;
 					
-					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+					conn.sendMessage("hashsbagent@"+resourceManager.getString('resources', 'SERVICE_HOST'), com.adobe.serialization.json.JSON.encode(jsonMessage));
 				}
 			}
 			
@@ -255,7 +255,7 @@
 					jsonMessage.tweetId = res._id;
 					jsonMessage.display = res.display;
 					
-					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+					conn.sendMessage("hashsbagent@"+resourceManager.getString('resources', 'SERVICE_HOST'), com.adobe.serialization.json.JSON.encode(jsonMessage));
 				}
 				
 				bi.visible = false;
@@ -278,7 +278,7 @@
 					var jsonMessage:Object = new Object();
 					jsonMessage.actionRequest = "stage";
 					
-					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+					conn.sendMessage("hashsbagent@"+resourceManager.getString('resources', 'SERVICE_HOST'), com.adobe.serialization.json.JSON.encode(jsonMessage));
 					timeoutInterval = setInterval(resetApp, 10000);
 				}
 				else {
@@ -315,9 +315,8 @@
 						break;
 				}
 				
-				conn.setPassword("hash");
+				conn.setPassword(resourceManager.getString('resources', 'DEFAULT_CLIENT_PASSWORD'));
 				conn.setServer(resourceManager.getString('resources', 'SERVER_HOST'));
-				//conn.addEventListener(XMPPEvent.MESSAGE, handleMessage);
 				conn.addEventListener(XMPPEvent.SESSION, handleSession);
 				conn.addPlugin(new MUC());
 				
@@ -327,8 +326,8 @@
 			private final function handleSession(e:XMPPEvent):void {
 				conn.sendPresence();
 				conn.addEventListener(XMPPEvent.MESSAGE_MUC, handleMUCMessage);
-				conn.plugin['muc'].joinRoom('conference.imediamac19.uio.no', 'tweakhashfelles', "client"+currentLandName);
-				conn.plugin['muc'].joinRoom('conference.imediamac19.uio.no', 'tweakfelles', "client"+currentLandName);
+				conn.plugin['muc'].joinRoom('conference.'+resourceManager.getString('resources', 'SERVICE_HOST'), resourceManager.getString('resources', 'HASH_ROOM_NAME'), "client"+currentLandName);
+				conn.plugin['muc'].joinRoom('conference.'+resourceManager.getString('resources', 'SERVICE_HOST'), resourceManager.getString('resources', 'ROOM_NAME'), "client"+currentLandName);
 				shareButton.enabled = true;
 			}
 			
@@ -378,7 +377,7 @@
 			
 			protected function sendTweet():void {
 				if(tweetArea.text.length > 0) {
-					conn.plugin['muc'].sendMessage('conference.imediamac19.uio.no', 'tweakfelles', tweetArea.text, null);
+					conn.plugin['muc'].sendMessage('conference.'+resourceManager.getString('resources', 'SERVICE_HOST'), resourceManager.getString('resources', 'ROOM_NAME'), tweetArea.text, null);
 				}
 				tweetArea.text = '';
 				tweetZone.visible = false;
@@ -397,7 +396,7 @@
 				if(shareButton.selected) {
 					var jsonMessage:Object = new Object();
 					jsonMessage.actionRequest = "stage";
-					conn.sendMessage("hashsbagent@imediamac19.uio.no", com.adobe.serialization.json.JSON.encode(jsonMessage));
+					conn.sendMessage("hashsbagent@"+resourceManager.getString('resources', 'SERVICE_HOST'), com.adobe.serialization.json.JSON.encode(jsonMessage));
 				}
 			}
 			
